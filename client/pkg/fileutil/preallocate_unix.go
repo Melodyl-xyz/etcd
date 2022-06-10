@@ -27,9 +27,10 @@ func preallocExtend(f *os.File, sizeInBytes int64) error {
 	err := syscall.Fallocate(int(f.Fd()), 0, 0, sizeInBytes)
 	if err != nil {
 		errno, ok := err.(syscall.Errno)
-		// not supported; fallback
+		// ENOTSUP:表示not supported; fallback（文件元数据中文件的大小会变化）
 		// fallocate EINTRs frequently in some environments; fallback
 		if ok && (errno == syscall.ENOTSUP || errno == syscall.EINTR) {
+			// 如果不支持，就使用seek + truncate来实现
 			return preallocExtendTrunc(f, sizeInBytes)
 		}
 	}
@@ -37,7 +38,7 @@ func preallocExtend(f *os.File, sizeInBytes int64) error {
 }
 
 func preallocFixed(f *os.File, sizeInBytes int64) error {
-	// use mode = 1 to keep size; see FALLOC_FL_KEEP_SIZE
+	// use mode = 1 to keep size; see FALLOC_FL_KEEP_SIZE（文件的元数据中文件的大小不会变化）
 	err := syscall.Fallocate(int(f.Fd()), 1, 0, sizeInBytes)
 	if err != nil {
 		errno, ok := err.(syscall.Errno)

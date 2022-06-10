@@ -83,17 +83,18 @@ func (e *encoder) encode(rec *walpb.Record) error {
 		}
 		data = e.buf[:n]
 	}
-
+	// 强制 8 字节对齐，计算lenField的大小和需要填充的PadBytes大小
 	lenField, padBytes := encodeFrameSize(len(data))
+	// 将lenField写入到PageWriter中
 	if err = writeUint64(e.bw, lenField, e.uint64buf); err != nil {
 		return err
 	}
-
+	// 将data填充后写入到PageWriter中
 	if padBytes != 0 {
 		data = append(data, make([]byte, padBytes)...)
 	}
 	n, err = e.bw.Write(data)
-	walWriteBytes.Add(float64(n))
+	walWriteBytes.Add(float64(n)) // prometheus监控
 	return err
 }
 

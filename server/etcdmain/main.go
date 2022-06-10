@@ -22,7 +22,7 @@ import (
 	"go.uber.org/zap"
 )
 
-func Main(args []string) {
+func Main(args []string) { // 入口
 	checkSupportArch()
 
 	if len(args) > 1 {

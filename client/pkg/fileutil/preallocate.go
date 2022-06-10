@@ -27,6 +27,7 @@ import (
 func Preallocate(f *os.File, sizeInBytes int64, extendFile bool) error {
 	if sizeInBytes == 0 {
 		// fallocate will return EINVAL if length is 0; skip
+		// EINVAL表示invalid argument的意思
 		return nil
 	}
 	if extendFile {
@@ -47,6 +48,7 @@ func preallocExtendTrunc(f *os.File, sizeInBytes int64) error {
 	if _, err = f.Seek(curOff, io.SeekStart); err != nil {
 		return err
 	}
+	// ？ 啥时候会出现这种状况
 	if sizeInBytes > size {
 		return nil
 	}

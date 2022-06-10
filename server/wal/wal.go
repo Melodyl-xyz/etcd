@@ -98,7 +98,10 @@ type WAL struct {
 // Create creates a WAL ready for appending records. The given metadata is
 // recorded at the head of each WAL file, and can be retrieved with ReadAll
 // after the file is Open.
+// 创建一个WAL结构体，并创建一个0000000-000000.wal的文件，为append记录做准备。
+// 元数据会记录在每个WAL文件的头部位置，并且当文件是Open状态的时候，能够被检索到。
 func Create(lg *zap.Logger, dirpath string, metadata []byte) (*WAL, error) {
+	// 检查当前路径下是否有wal后缀的文件
 	if Exist(dirpath) {
 		return nil, os.ErrExist
 	}
@@ -108,6 +111,7 @@ func Create(lg *zap.Logger, dirpath string, metadata []byte) (*WAL, error) {
 	}
 
 	// keep temporary wal directory so WAL initialization appears atomic
+	// 创建一个临时的文件夹，发现有就先删除它然后在创建
 	tmpdirpath := filepath.Clean(dirpath) + ".tmp"
 	if fileutil.Exist(tmpdirpath) {
 		if err := os.RemoveAll(tmpdirpath); err != nil {
@@ -115,7 +119,6 @@ func Create(lg *zap.Logger, dirpath string, metadata []byte) (*WAL, error) {
 		}
 	}
 	defer os.RemoveAll(tmpdirpath)
-
 	if err := fileutil.CreateDirAll(tmpdirpath); err != nil {
 		lg.Warn(
 			"failed to create a temporary WAL directory",
@@ -125,9 +128,9 @@ func Create(lg *zap.Logger, dirpath string, metadata []byte) (*WAL, error) {
 		)
 		return nil, err
 	}
-
+	// p = /xxx/dirpath.tmp/0000000000000000-0000000000000000.wal
 	p := filepath.Join(tmpdirpath, walName(0, 0))
-	f, err := fileutil.LockFile(p, os.O_WRONLY|os.O_CREATE, fileutil.PrivateFileMode)
+	f, err := fileutil.LockFile(p, os.O_WRONLY|os.O_CREATE, fileutil.PrivateFileMode) // LockFile 创建文件并加上文件排他锁
 	if err != nil {
 		lg.Warn(
 			"failed to flock an initial WAL file",
@@ -154,16 +157,17 @@ func Create(lg *zap.Logger, dirpath string, metadata []byte) (*WAL, error) {
 		return nil, err
 	}
 
+	/* 创建一个WAL对象，实例化其成员变量 */
 	w := &WAL{
-		lg:       lg,
+		lg:       lg, // logger
 		dir:      dirpath,
 		metadata: metadata,
 	}
-	w.encoder, err = newFileEncoder(f.File, 0)
+	w.encoder, err = newFileEncoder(f.File, 0) // 赋值encoder，这个encoder带有file的句柄
 	if err != nil {
 		return nil, err
 	}
-	w.locks = append(w.locks, f)
+	w.locks = append(w.locks, f) // 文件锁中加入该LockedFile这个struct
 	if err = w.saveCrc(0); err != nil {
 		return nil, err
 	}
@@ -175,6 +179,8 @@ func Create(lg *zap.Logger, dirpath string, metadata []byte) (*WAL, error) {
 	}
 
 	logDirPath := w.dir
+	// tmpdirpath是带.tmp后缀的dir
+	// 这里也为 w.fp 和 w.dirFile 这两个成员变量赋值
 	if w, err = w.renameWAL(tmpdirpath); err != nil {
 		lg.Warn(
 			"failed to rename the temporary WAL directory",
@@ -193,6 +199,7 @@ func Create(lg *zap.Logger, dirpath string, metadata []byte) (*WAL, error) {
 	}()
 
 	// directory was renamed; sync parent dir to persist rename
+	// dir取消了tmp的后缀
 	pdir, perr := fileutil.OpenDir(filepath.Dir(w.dir))
 	if perr != nil {
 		lg.Warn(
@@ -254,7 +261,10 @@ func (w *WAL) cleanupWAL(lg *zap.Logger) {
 	}
 }
 
+// https://github.com/etcd-io/etcd/pull/7915
+// 在windows中，rename的时候，如果目录已经存在，rename会失败，需要removeAll后才能去rename。
 func (w *WAL) renameWAL(tmpdirpath string) (*WAL, error) {
+	// tmpdirpath 是dir的路径加上.tmp的后缀的路径
 	if err := os.RemoveAll(w.dir); err != nil {
 		return nil, err
 	}
@@ -264,7 +274,10 @@ func (w *WAL) renameWAL(tmpdirpath string) (*WAL, error) {
 	// happening. The fds are set up as close-on-exec by the Go runtime,
 	// but there is a window between the fork and the exec where another
 	// process holds the lock.
+	// Rename 返回LinkError的错误，主要在link（硬连接）、symLink（软连接）和rename上。
 	if err := os.Rename(tmpdirpath, w.dir); err != nil {
+		// 如果rename发生错误，释放文件句柄，在试一次。
+		// 这里面会释放锁，然后重新绑定锁，在这期间可能会被其他进程占用该目录而导致失败
 		if _, ok := err.(*os.LinkError); ok {
 			return w.renameWALUnlock(tmpdirpath)
 		}
@@ -329,17 +342,18 @@ func openAtIndex(lg *zap.Logger, dirpath string, snap walpb.Snapshot, write bool
 	if lg == nil {
 		lg = zap.NewNop()
 	}
-	names, nameIndex, err := selectWALFiles(lg, dirpath, snap)
+	names, nameIndex, err := selectWALFiles(lg, dirpath, snap) // 获取wal的文件名集合
 	if err != nil {
 		return nil, err
 	}
 
-	rs, ls, closer, err := openWALFiles(lg, dirpath, names, nameIndex, write)
+	rs, ls, closer, err := openWALFiles(lg, dirpath, names, nameIndex, write) // 打开所有文件，如果要写的话还会加锁
 	if err != nil {
 		return nil, err
 	}
 
 	// create a WAL ready for reading
+	// 初始一个WAL对象
 	w := &WAL{
 		lg:        lg,
 		dir:       dirpath,
@@ -349,10 +363,12 @@ func openAtIndex(lg *zap.Logger, dirpath string, snap walpb.Snapshot, write bool
 		locks:     ls,
 	}
 
+	// 如果需要write，则初始化成员fp、readClose置为nil
 	if write {
 		// write reuses the file descriptors from read; don't close so
 		// WAL can append without dropping the file lock
-		w.readClose = nil
+		w.readClose = nil // readClose的closer置为nil
+		// 最后一个文件的文件名检测是否OK
 		if _, _, err := parseWALName(filepath.Base(w.tail().Name())); err != nil {
 			closer()
 			return nil, err
@@ -363,12 +379,15 @@ func openAtIndex(lg *zap.Logger, dirpath string, snap walpb.Snapshot, write bool
 	return w, nil
 }
 
+// 在dirpath下找到比snap.Index还大的所有wal文件的名称（有序的）
 func selectWALFiles(lg *zap.Logger, dirpath string, snap walpb.Snapshot) ([]string, int, error) {
-	names, err := readWALNames(lg, dirpath)
+	names, err := readWALNames(lg, dirpath) // 从dirpath中获取所有的wal文件的名称
 	if err != nil {
 		return nil, -1, err
 	}
 
+	// 直接基于文件名分析「seqId-indexId」
+	// 从这些文件名称中找到 小于等于 snap.Index 的快照文件的索引号
 	nameIndex, ok := searchIndex(lg, names, snap.Index)
 	if !ok || !isValidSeq(lg, names[nameIndex:]) {
 		err = ErrFileNotFound
@@ -378,6 +397,7 @@ func selectWALFiles(lg *zap.Logger, dirpath string, snap walpb.Snapshot) ([]stri
 	return names, nameIndex, nil
 }
 
+// 从nameIndex的文件开始读取dirPath下的文件，封装为Reader、LockedFile、closer
 func openWALFiles(lg *zap.Logger, dirpath string, names []string, nameIndex int, write bool) ([]io.Reader, []*fileutil.LockedFile, func() error, error) {
 	rcs := make([]io.ReadCloser, 0)
 	rs := make([]io.Reader, 0)
@@ -395,7 +415,7 @@ func openWALFiles(lg *zap.Logger, dirpath string, names []string, nameIndex int,
 		} else {
 			rf, err := os.OpenFile(p, os.O_RDONLY, fileutil.PrivateFileMode)
 			if err != nil {
-				closeAll(lg, rcs...)
+				closeAll(lg, rcs...) // 这里都是直接打印error，并不会把这个err返回上去
 				return nil, nil, nil, err
 			}
 			ls = append(ls, nil)

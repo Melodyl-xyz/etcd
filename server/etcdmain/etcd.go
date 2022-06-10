@@ -53,7 +53,7 @@ var (
 func startEtcdOrProxyV2(args []string) {
 	grpc.EnableTracing = false
 
-	cfg := newConfig()
+	cfg := newConfig() // 创建defaultConfig和flag
 	defaultInitialCluster := cfg.ec.InitialCluster
 
 	err := cfg.parse(args[1:])

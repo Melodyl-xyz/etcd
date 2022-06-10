@@ -45,6 +45,7 @@ var (
 )
 
 func TestNew(t *testing.T) {
+	// tempDir的pattern表示生成的dir的前缀名
 	p, err := ioutil.TempDir(t.TempDir(), "waltest")
 	if err != nil {
 		t.Fatal(err)

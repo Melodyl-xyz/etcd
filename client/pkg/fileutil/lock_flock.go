@@ -42,6 +42,7 @@ func flockLockFile(path string, flag int, perm os.FileMode) (*LockedFile, error)
 	if err != nil {
 		return nil, err
 	}
+	// ex: exclusive；nb：non-blocking；sh：share；un：unlock
 	if err = syscall.Flock(int(f.Fd()), syscall.LOCK_EX); err != nil {
 		f.Close()
 		return nil, err

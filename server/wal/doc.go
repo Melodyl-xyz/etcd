@@ -40,6 +40,11 @@ protobuf. The record protobuf contains a CRC, a type, and a data payload. The le
 56 bits and its physical padding in the first three bits of the most significant byte. Each
 record is 8-byte aligned so that the length field is never torn. The CRC contains the CRC32
 value of all record protobufs preceding the current record.
+每个WAL文件都是WAL record流。WAL record是由一个长度字段和一个WAL record protobuf组成。
+record protobuf 包含CRC、类型和数据有效负载。
+长度字段是一种64位压缩结构，逻辑record的数据长度保留在其较低的56位中，并将padding部分存放在最高有效字节的前三位中。
+每条record都是8字节对齐的，因此长度字段永远不会被撕裂。
+CRC包含当前record之前的所有record protobuf的CRC32值。
 
 WAL files are placed inside of the directory in the following format:
 $seq-$index.wal

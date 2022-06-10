@@ -793,6 +793,7 @@ func (s *EtcdServer) adjustTicks() {
 // Start must be non-blocking; any long-running server functionality
 // should be implemented in goroutines.
 func (s *EtcdServer) Start() {
+	// 启动etcd
 	s.start()
 	s.GoAttach(func() { s.adjustTicks() })
 	// TODO: Switch to publishV3 in 3.6.

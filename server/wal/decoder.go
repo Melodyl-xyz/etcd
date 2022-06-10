@@ -53,7 +53,7 @@ func newDecoder(r ...io.Reader) *decoder {
 }
 
 func (d *decoder) decode(rec *walpb.Record) error {
-	rec.Reset()
+	rec.Reset() // 清空里面的内容
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return d.decodeRecord(rec)
@@ -64,6 +64,7 @@ func (d *decoder) decode(rec *walpb.Record) error {
 // thus entry size should never exceed 10 MB
 const maxWALEntrySizeLimit = int64(10 * 1024 * 1024)
 
+// 递归调用，从第一个文件开始读第一个Int64，一直对到有的，然就开始真正的解析
 func (d *decoder) decodeRecord(rec *walpb.Record) error {
 	if len(d.brs) == 0 {
 		return io.EOF
@@ -72,22 +73,24 @@ func (d *decoder) decodeRecord(rec *walpb.Record) error {
 	l, err := readInt64(d.brs[0])
 	if err == io.EOF || (err == nil && l == 0) {
 		// hit end of file or preallocated space
-		d.brs = d.brs[1:]
+		d.brs = d.brs[1:] // bufferReader截断
 		if len(d.brs) == 0 {
 			return io.EOF
 		}
 		d.lastValidOff = 0
-		return d.decodeRecord(rec)
+		return d.decodeRecord(rec) // 递归调用
 	}
 	if err != nil {
 		return err
 	}
 
+	// record+padding
 	recBytes, padBytes := decodeFrameSize(l)
 	if recBytes >= maxWALEntrySizeLimit-padBytes {
 		return ErrMaxWALEntrySizeLimitExceeded
 	}
 
+	// 创建一个recBytes
 	data := make([]byte, recBytes+padBytes)
 	if _, err = io.ReadFull(d.brs[0], data); err != nil {
 		// ReadFull returns io.EOF only if no bytes were read
@@ -133,7 +136,7 @@ func decodeFrameSize(lenField int64) (recBytes int64, padBytes int64) {
 // isTornEntry determines whether the last entry of the WAL was partially written
 // and corrupted because of a torn write.
 func (d *decoder) isTornEntry(data []byte) bool {
-	if len(d.brs) != 1 {
+	if len(d.brs) != 1 { // 如果不是最后一个文件，就不可能是损坏的，直接返回
 		return false
 	}
 

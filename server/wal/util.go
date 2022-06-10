@@ -27,6 +27,7 @@ import (
 var errBadWALName = errors.New("bad wal name")
 
 // Exist returns true if there are any files in a given directory.
+// 检查当前路径下是否有wal后缀的文件
 func Exist(dir string) bool {
 	names, err := fileutil.ReadDir(dir, fileutil.WithExt(".wal"))
 	if err != nil {
@@ -37,7 +38,7 @@ func Exist(dir string) bool {
 
 // searchIndex returns the last array index of names whose raft index section is
 // equal to or smaller than the given index.
-// The given names MUST be sorted.
+// 【 The given names MUST be sorted. 】
 func searchIndex(lg *zap.Logger, names []string, index uint64) (int, bool) {
 	for i := len(names) - 1; i >= 0; i-- {
 		name := names[i]
@@ -69,8 +70,9 @@ func isValidSeq(lg *zap.Logger, names []string) bool {
 	return true
 }
 
+// 获取dirpath路径下的所有有效的按照顺序排列的wal文件名，如果没有会报错
 func readWALNames(lg *zap.Logger, dirpath string) ([]string, error) {
-	names, err := fileutil.ReadDir(dirpath)
+	names, err := fileutil.ReadDir(dirpath) // 返回的时候是有顺序的
 	if err != nil {
 		return nil, err
 	}
@@ -81,11 +83,14 @@ func readWALNames(lg *zap.Logger, dirpath string) ([]string, error) {
 	return wnames, nil
 }
 
+// 过滤不必要的文件和.tmp文件
 func checkWalNames(lg *zap.Logger, names []string) []string {
 	wnames := make([]string, 0)
 	for _, name := range names {
+		// 通过解析的方式来检查名称是否正确
 		if _, _, err := parseWALName(name); err != nil {
 			// don't complain about left over tmp files
+			// 如果解析失败了，看下是不是tmp后缀，如果是的，就直接忽略
 			if !strings.HasSuffix(name, ".tmp") {
 				lg.Warn(
 					"ignored file in WAL directory",
@@ -99,6 +104,7 @@ func checkWalNames(lg *zap.Logger, names []string) []string {
 	return wnames
 }
 
+// 将str字符串中的seq和index给解析出来，也可以用来检测文件名是否OK
 func parseWALName(str string) (seq, index uint64, err error) {
 	if !strings.HasSuffix(str, ".wal") {
 		return 0, 0, errBadWALName
@@ -107,6 +113,7 @@ func parseWALName(str string) (seq, index uint64, err error) {
 	return seq, index, err
 }
 
+// %016表示的是16位宽，0000000000000000-0000000000000000.wal
 func walName(seq, index uint64) string {
 	return fmt.Sprintf("%016x-%016x.wal", seq, index)
 }

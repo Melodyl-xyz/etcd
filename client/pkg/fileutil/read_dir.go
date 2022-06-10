@@ -30,6 +30,7 @@ type ReadDirOption func(*ReadDirOp)
 
 // WithExt filters file names by their extensions.
 // (e.g. WithExt(".wal") to list only WAL files)
+// 添加扩展名相关的过滤条件，满足的才会被Read出来
 func WithExt(ext string) ReadDirOption {
 	return func(op *ReadDirOp) { op.ext = ext }
 }
@@ -40,7 +41,8 @@ func (op *ReadDirOp) applyOpts(opts []ReadDirOption) {
 	}
 }
 
-// ReadDir returns the filenames in the given directory in sorted order.
+// ReadDir returns the filenames in the given directory in 【sorted order.】
+// 这个方法会整理顺序
 func ReadDir(d string, opts ...ReadDirOption) ([]string, error) {
 	op := &ReadDirOp{}
 	op.applyOpts(opts)
@@ -60,6 +62,7 @@ func ReadDir(d string, opts ...ReadDirOption) ([]string, error) {
 	if op.ext != "" {
 		tss := make([]string, 0)
 		for _, v := range names {
+			// 获取其扩展名是否和ext一致
 			if filepath.Ext(v) == op.ext {
 				tss = append(tss, v)
 			}

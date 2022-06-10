@@ -334,6 +334,7 @@ func (cfg *config) parse(arguments []string) error {
 	}
 
 	if cfg.configFile != "" {
+		// 从配置文件启动
 		err = cfg.configFromFile(cfg.configFile)
 		if lg := cfg.ec.GetLogger(); lg != nil {
 			lg.Info(
