@@ -29,6 +29,11 @@ import (
 // walPageBytes is the alignment for flushing records to the backing Writer.
 // It should be a multiple of the minimum sector size so that WAL can safely
 // distinguish between torn writes and ordinary data corruption.
+// walPageBytes 是为了将record flush到真实writer的对齐字段。
+// 它应该是最小扇区的整数倍，这样WAL可以区分损坏写入（torn writes）和一般的数据损坏（data corruption）。
+// 这里是4k。
+// wal: use page buffered writer for writing records
+// 强制文件分裂仅发生在扇区边界上。
 const walPageBytes = 8 * minSectorSize
 
 type encoder struct {
@@ -36,6 +41,8 @@ type encoder struct {
 	bw *ioutil.PageWriter
 
 	crc       hash.Hash32
+	// 1M的buf，初始化的时候创建，后面每次写的时候小于1M的数据都可以放到这里面，减少内存分配次数。
+	// buf和uint64buf的目标都是一致的
 	buf       []byte
 	uint64buf []byte
 }
@@ -63,6 +70,7 @@ func (e *encoder) encode(rec *walpb.Record) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
+	// 计算record的crc，赋值给record pb
 	e.crc.Write(rec.Data)
 	rec.Crc = e.crc.Sum32()
 	var (
@@ -71,6 +79,9 @@ func (e *encoder) encode(rec *walpb.Record) error {
 		n    int
 	)
 
+	// 如果size这个buf接得住，就放到buf里面；
+	// 如果size这个buf接不住，则Marshal()会处理来处理。
+	// 优化：这有个好处就是减少了byte分配。（wal: reduce allocation when encoding entries）
 	if rec.Size() > len(e.buf) {
 		data, err = rec.Marshal()
 		if err != nil {
@@ -118,8 +129,11 @@ func (e *encoder) flush() error {
 
 func writeUint64(w io.Writer, n uint64, buf []byte) error {
 	// http://golang.org/src/encoding/binary/binary.go
+	// 最初的版本 binary.Write(w, binary.LittleEndian, n)
+	// 优化：在binary.Write中会先分配一个byte，然后在put，为了减少二次分配，直接使用PutUin
 	binary.LittleEndian.PutUint64(buf, n)
 	nv, err := w.Write(buf)
+	// prometheus监控
 	walWriteBytes.Add(float64(nv))
 	return err
 }
