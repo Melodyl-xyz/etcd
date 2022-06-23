@@ -657,6 +657,7 @@ func NewServer(cfg config.ServerConfig) (srv *EtcdServer, err error) {
 	if srv.Cfg.EnableLeaseCheckpoint {
 		// setting checkpointer enables lease checkpoint feature.
 		srv.lessor.SetCheckpointer(func(ctx context.Context, cp *pb.LeaseCheckpointRequest) {
+			// 这个error没有处理
 			srv.raftRequestOnce(ctx, pb.InternalRaftRequest{LeaseCheckpoint: cp})
 		})
 	}

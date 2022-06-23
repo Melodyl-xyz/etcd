@@ -22,6 +22,8 @@ import (
 // LeaseWithTime contains lease object with a time.
 // For the lessor's lease heap, time identifies the lease expiration time.
 // For the lessor's lease checkpoint heap, the time identifies the next lease checkpoint time.
+// 对于lessor的租约堆来说，time表示的是租约的超时时间
+// 对于lessor的checkpoint堆来说，time表示的是下一个租约checkpoint时间点。
 type LeaseWithTime struct {
 	id    LeaseID
 	time  time.Time
@@ -53,6 +55,7 @@ func (pq *LeaseQueue) Pop() interface{} {
 	old := *pq
 	n := len(old)
 	item := old[n-1]
+	// 这里调整了index
 	item.index = -1 // for safety
 	*pq = old[0 : n-1]
 	return item
@@ -60,8 +63,12 @@ func (pq *LeaseQueue) Pop() interface{} {
 
 // LeaseExpiredNotifier is a queue used to notify lessor to revoke expired lease.
 // Only save one item for a lease, `Register` will update time of the corresponding lease.
+// LeaseExpiredNotifier是一个队列，用于通知lessor撤销过期的租约。
+// 每个Lease对应一个LeaseID，` Register`将更新相应租约的时间。
+// Notifier 线程不安全
 type LeaseExpiredNotifier struct {
 	m     map[LeaseID]*LeaseWithTime
+	// 实际上是一个堆
 	queue LeaseQueue
 }
 
@@ -75,6 +82,7 @@ func newLeaseExpiredNotifier() *LeaseExpiredNotifier {
 func (mq *LeaseExpiredNotifier) Init() {
 	heap.Init(&mq.queue)
 	mq.m = make(map[LeaseID]*LeaseWithTime)
+	// 这里还会初始化一些queue里面的内容
 	for _, item := range mq.queue {
 		mq.m[item.id] = item
 	}
