@@ -211,6 +211,7 @@ type EtcdServer struct {
 	consistIndex cindex.ConsistentIndexer // consistIndex is used to get/set/save consistentIndex
 	r            raftNode                 // uses 64-bit atomics; keep 64-bit aligned.
 
+	// 等待是否准备好的channel
 	readych chan struct{}
 	Cfg     config.ServerConfig
 
@@ -256,6 +257,7 @@ type EtcdServer struct {
 	applyV3Internal applierV3Internal
 	applyWait       wait.WaitTime
 
+	// 用于读取的kv
 	kv         mvcc.WatchableKV
 	lessor     lease.Lessor
 	bemu       sync.Mutex
@@ -530,6 +532,7 @@ func NewServer(cfg config.ServerConfig) (srv *EtcdServer, err error) {
 		}
 
 		if !cfg.ForceNewCluster {
+			// 初始化Node
 			id, cl, n, s, w = restartNode(cfg, snapshot)
 		} else {
 			id, cl, n, s, w = restartAsStandaloneNode(cfg, snapshot)
@@ -612,6 +615,7 @@ func NewServer(cfg config.ServerConfig) (srv *EtcdServer, err error) {
 		cfg.Logger.Warn("failed to create token provider", zap.Error(err))
 		return nil, err
 	}
+	// 初始化kv的入口
 	srv.kv = mvcc.New(srv.Logger(), srv.be, srv.lessor, mvcc.StoreConfig{CompactionBatchLimit: cfg.CompactionBatchLimit})
 
 	kvindex := ci.ConsistentIndex()
@@ -648,6 +652,7 @@ func NewServer(cfg config.ServerConfig) (srv *EtcdServer, err error) {
 		srv.compactor.Run()
 	}
 
+	// 初始化 applyV3Base
 	srv.applyV3Base = srv.newApplierV3Backend()
 	srv.applyV3Internal = srv.newApplierV3Internal()
 	if err = srv.restoreAlarms(); err != nil {

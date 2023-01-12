@@ -198,6 +198,7 @@ type Config struct {
 	MaxTxnOps           uint   `json:"max-txn-ops"`
 	MaxRequestBytes     uint   `json:"max-request-bytes"`
 
+	// PeerUrls, ClientUrls
 	LPUrls, LCUrls []url.URL
 	APUrls, ACUrls []url.URL
 	ClientTLSInfo  transport.TLSInfo
@@ -219,6 +220,7 @@ type Config struct {
 	DNSClusterServiceName string `json:"discovery-srv-name"`
 	Dproxy                string `json:"discovery-proxy"`
 	Durl                  string `json:"discovery"`
+	// 集群最初的所有成员
 	InitialCluster        string `json:"initial-cluster"`
 	InitialClusterToken   string `json:"initial-cluster-token"`
 	StrictReconfigCheck   bool   `json:"strict-reconfig-check"`

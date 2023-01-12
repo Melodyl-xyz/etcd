@@ -101,6 +101,7 @@ type peerListener struct {
 // The returned Etcd.Server is not guaranteed to have joined the cluster. Wait
 // on the Etcd.Server.ReadyNotify() channel to know when it completes and is ready for use.
 func StartEtcd(inCfg *Config) (e *Etcd, err error) {
+	// 参数校验
 	if err = inCfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -132,6 +133,7 @@ func StartEtcd(inCfg *Config) (e *Etcd, err error) {
 		"configuring peer listeners",
 		zap.Strings("listen-peer-urls", e.cfg.getLPURLs()),
 	)
+	// 根据Quorum的配置来启动peer server
 	if e.Peers, err = configurePeerListeners(cfg); err != nil {
 		return e, err
 	}
@@ -140,6 +142,7 @@ func StartEtcd(inCfg *Config) (e *Etcd, err error) {
 		"configuring client listeners",
 		zap.Strings("listen-client-urls", e.cfg.getLCURLs()),
 	)
+	// 根据Client的配置启动client server，可能监听入口有多个
 	if e.sctxs, err = configureClientListeners(cfg); err != nil {
 		return e, err
 	}
@@ -149,7 +152,9 @@ func StartEtcd(inCfg *Config) (e *Etcd, err error) {
 	}
 
 	var (
+		// 当前name对应的地址
 		urlsmap types.URLsMap
+		// 当前节点的token
 		token   string
 	)
 	memberInitialized := true
@@ -264,6 +269,7 @@ func StartEtcd(inCfg *Config) (e *Etcd, err error) {
 	}
 	e.Server.Start()
 
+	// etcd 正式启动入口
 	if err = e.servePeers(); err != nil {
 		return e, err
 	}
@@ -708,7 +714,9 @@ func (e *Etcd) serveClients() (err error) {
 		}
 	} else {
 		mux := http.NewServeMux()
+		// version + expvar
 		etcdhttp.HandleBasic(e.cfg.logger, mux, e.Server)
+		// prometheus
 		etcdhttp.HandleMetricsHealthForV3(e.cfg.logger, mux, e.Server)
 		h = mux
 	}

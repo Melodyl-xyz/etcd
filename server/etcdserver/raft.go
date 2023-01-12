@@ -422,19 +422,25 @@ func (r *raftNode) advanceTicks(ticks int) {
 
 func startNode(cfg config.ServerConfig, cl *membership.RaftCluster, ids []types.ID) (id types.ID, n raft.Node, s *raft.MemoryStorage, w *wal.WAL) {
 	var err error
+	// 确定member
 	member := cl.MemberByName(cfg.Name)
+	// 确定metadata
 	metadata := pbutil.MustMarshal(
 		&pb.Metadata{
 			NodeID:    uint64(member.ID),
 			ClusterID: uint64(cl.ID()),
 		},
 	)
+	// 初始化wal
 	if w, err = wal.Create(cfg.Logger, cfg.WALDir(), metadata); err != nil {
 		cfg.Logger.Panic("failed to create WAL", zap.Error(err))
 	}
 	if cfg.UnsafeNoFsync {
 		w.SetUnsafeNoFsync()
 	}
+
+	// 初始化Node
+	/// 准备初始化Node的资源：peers、id、memoryStorage、raftConfig
 	peers := make([]raft.Peer, len(ids))
 	for i, id := range ids {
 		var ctx []byte
@@ -465,6 +471,7 @@ func startNode(cfg config.ServerConfig, cl *membership.RaftCluster, ids []types.
 	if len(peers) == 0 {
 		n = raft.RestartNode(c)
 	} else {
+		//// 启动Node
 		n = raft.StartNode(c, peers)
 	}
 	raftStatusMu.Lock()

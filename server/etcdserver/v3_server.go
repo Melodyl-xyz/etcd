@@ -721,6 +721,7 @@ func (s *EtcdServer) processInternalRaftRequestOnce(ctx context.Context, r pb.In
 		return x.(*applyResult), nil
 	case <-cctx.Done():
 		proposalsFailed.Inc()
+		// 回收id，清理其资源
 		s.w.Trigger(id, nil) // GC wait
 		return nil, s.parseProposeCtxErr(cctx.Err(), start)
 	case <-s.done:

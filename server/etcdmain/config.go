@@ -77,9 +77,10 @@ type configProxy struct {
 
 // config holds the config for a command line invocation of etcd
 type config struct {
-	ec           embed.Config
-	cp           configProxy
-	cf           configFlags
+	ec embed.Config
+	cp configProxy
+	cf configFlags
+	// 配置文件路径
 	configFile   string
 	printVersion bool
 	ignored      []string
@@ -133,6 +134,7 @@ func newConfig() *config {
 		fmt.Fprintln(os.Stderr, usageline)
 	}
 
+	// 读取config-file文件的配置
 	fs.StringVar(&cfg.configFile, "config-file", "", "Path to the server configuration file. Note that if a configuration file is provided, other command line flags and environment variables will be ignored.")
 
 	// member
@@ -334,7 +336,7 @@ func (cfg *config) parse(arguments []string) error {
 	}
 
 	if cfg.configFile != "" {
-		// 从配置文件启动
+		// 从配置文件启动的话，就从配置文件中解析配置
 		err = cfg.configFromFile(cfg.configFile)
 		if lg := cfg.ec.GetLogger(); lg != nil {
 			lg.Info(

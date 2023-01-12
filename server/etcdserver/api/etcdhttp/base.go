@@ -77,6 +77,7 @@ func serveVars(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	fmt.Fprintf(w, "{\n")
 	first := true
+	// 返回 expvar.publish 的指标
 	expvar.Do(func(kv expvar.KeyValue) {
 		if !first {
 			fmt.Fprintf(w, ",\n")

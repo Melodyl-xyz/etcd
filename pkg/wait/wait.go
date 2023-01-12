@@ -40,6 +40,10 @@ type Wait interface {
 	IsRegistered(id uint64) bool
 }
 
+// 这里搞了个分段锁来解决锁竞争的问题
+// 有64个桶
+// 每个bucket一个锁，每个bucket里面一个map，
+// map中存储了requestId于一个channel的对应关系
 type list struct {
 	e []listElement
 }

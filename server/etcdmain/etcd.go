@@ -53,10 +53,13 @@ var (
 func startEtcdOrProxyV2(args []string) {
 	grpc.EnableTracing = false
 
-	cfg := newConfig() // 创建defaultConfig和flag
+	// 初始化flagSet
+	cfg := newConfig()
 	defaultInitialCluster := cfg.ec.InitialCluster
 
+	// flagSet解析所有的入口参数
 	err := cfg.parse(args[1:])
+	// 获取logger
 	lg := cfg.ec.GetLogger()
 	// If we failed to parse the whole configuration, print the error using
 	// preferably the resolved logger from the config,
@@ -120,8 +123,10 @@ func startEtcdOrProxyV2(args []string) {
 		)
 		switch which {
 		case dirMember:
+			// 开启入口，启动etcd
 			stopped, errc, err = startEtcd(&cfg.ec)
 		case dirProxy:
+			// 开启入口，启动proxy
 			err = startProxy(cfg)
 		default:
 			lg.Panic(
@@ -204,6 +209,7 @@ func startEtcdOrProxyV2(args []string) {
 		lg.Fatal("discovery failed", zap.Error(err))
 	}
 
+	// 另外启动一个来监听系统kill信号
 	osutil.HandleInterrupts(lg)
 
 	// At this point, the initialization of etcd is done.

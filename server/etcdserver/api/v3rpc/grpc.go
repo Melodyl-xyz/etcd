@@ -72,6 +72,8 @@ func Server(s *etcdserver.EtcdServer, tls *tls.Config, interceptor grpc.UnarySer
 
 	grpcServer := grpc.NewServer(append(opts, gopts...)...)
 
+	// 这里把必要的函数注册上去
+	// 等价于 grpcServer.RegisterService(NewQuotaKVServer(s))
 	pb.RegisterKVServer(grpcServer, NewQuotaKVServer(s))
 	pb.RegisterWatchServer(grpcServer, NewWatchServer(s))
 	pb.RegisterLeaseServer(grpcServer, NewQuotaLeaseServer(s))

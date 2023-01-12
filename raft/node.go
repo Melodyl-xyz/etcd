@@ -123,6 +123,7 @@ func (rd Ready) appliedCursor() uint64 {
 }
 
 // Node represents a node in a raft cluster.
+// 这里面竟然没有Start方法，start在etcdServer中封装
 type Node interface {
 	// Tick increments the internal logical clock for the Node by a single tick. Election
 	// timeouts and heartbeat timeouts are in units of ticks.
@@ -342,6 +343,7 @@ func (n *node) run() {
 		// TODO: maybe buffer the config propose if there exists one (the way
 		// described in raft dissertation)
 		// Currently it is dropped in Step silently.
+		// 处理prop请求
 		case pm := <-propc:
 			m := pm.m
 			m.From = r.id
@@ -352,6 +354,7 @@ func (n *node) run() {
 			}
 		case m := <-n.recvc:
 			// filter out response message from unknown From.
+			// 处理非prop请求
 			if pr := r.prs.Progress[m.From]; pr != nil || !IsResponseMsg(m.Type) {
 				r.Step(m)
 			}
@@ -456,6 +459,7 @@ func (n *node) stepWait(ctx context.Context, m pb.Message) error {
 
 // Step advances the state machine using msgs. The ctx.Err() will be returned,
 // if any.
+// wait表示是否需要等待结果，如果不需要就直接返回
 func (n *node) stepWithWaitOption(ctx context.Context, m pb.Message, wait bool) error {
 	if m.Type != pb.MsgProp {
 		select {

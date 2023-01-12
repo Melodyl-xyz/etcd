@@ -52,12 +52,15 @@ type serveCtx struct {
 	l        net.Listener
 	addr     string
 	network  string
+	// 如果是https或者unixs开头就是secure，否则是insecure
 	secure   bool
 	insecure bool
 
 	ctx    context.Context
 	cancel context.CancelFunc
 
+	// 用于内嵌etcd使用的http hook，由config注入
+	// 当然，这个handler也会被注入Prometheus和Pprof的内容
 	userHandlers    map[string]http.Handler
 	serviceRegister func(*grpc.Server)
 	serversC        chan *servers
@@ -110,6 +113,7 @@ func (sctx *serveCtx) serve(
 	}()
 
 	if sctx.insecure {
+		// 这里会把所有操作封装后注册到grpcServer中
 		gs = v3rpc.Server(s, nil, nil, gopts...)
 		v3electionpb.RegisterElectionServer(gs, servElection)
 		v3lockpb.RegisterLockServer(gs, servLock)
